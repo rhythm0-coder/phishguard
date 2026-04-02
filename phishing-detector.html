@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Phishing Detector</title>
+
+  <style>
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      background: #f0f4f8;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #1e3a5f;
+      font-size: 28px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-family: monospace;
+    }
+
+    button {
+      padding: 10px 28px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    #results {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 24px;
+      border: 1px solid #ddd;
+      display: none;
+    }
+
+    .flag-item {
+      background: #fff7ed;
+      border-left: 4px solid #f97316;
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .verdict {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .score {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 16px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <h1>🔍 Phishing Detector</h1>
+  <p>Paste a suspicious URL or email text below. I'll check it for red flags!</p>
+
+  <textarea
+    id="userInput"
+    rows="6"
+    placeholder="Try pasting something like:
+http://paypa1.com.verify-account.xyz/login
+
+Or paste some email text like:
+URGENT: Your account is suspended. Verify your password immediately."
+  ></textarea>
+
+  <br>
+
+  <button onclick="analyze()">🔎 Check it!</button>
+
+  <div id="results"></div>
+
+  <script>
+
+    const checks = [
+
+      {
+        label: "Uses an IP address instead of a real domain name (e.g. http://192.168.1.1)",
+        points: 30,
+        test: function(input) {
+          return /(\d{1,3}\.){3}\d{1,3}/.test(input);
+        }
+      },
+
+      {
+        label: "Uses http:// instead of https:// — the connection is NOT secure",
+        points: 10,
+        test: function(input) {
+          return input.startsWith("http://");
+        }
+      },
+
+      {
+        label: "Suspicious top-level domain (.xyz, .tk, .pw, .top) — these are often used in scams",
+        points: 15,
+        test: function(input) {
+          return /\.(xyz|tk|pw|top|ml|ga|cf|click)/.test(input);
+        }
+      },
+
+      {
+        label: "URL shortener detected (bit.ly, tinyurl, etc.) — these hide the real destination",
+        points: 15,
+        test: function(input) {
+          return /bit\.ly|tinyurl\.com|t\.co|goo\.gl|ow\.ly/i.test(input);
+        }
+      },
+
+      {
+        label: "Brand name appears in the subdomain (e.g. paypal.com.evil.ru) — this is a trick!",
+        points: 25,
+        test: function(input) {
+          const brands = ["paypal", "amazon", "google", "apple", "microsoft",
+                          "netflix", "facebook", "instagram", "bank", "hsbc"];
+          return brands.some(function(brand) {
+            return input.includes(brand) && !input.includes("www." + brand);
+          });
+        }
+      },
+
+      {
+        label: "Urgency language detected — phrases like 'urgent', 'act now', 'immediately' are scare tactics",
+        points: 15,
+        test: function(input) {
+          return /urgent|immediately|act now|suspended|verify now|within 24 hours/i.test(input);
+        }
+      },
+
+      {
+        label: "Asking for sensitive information — passwords, SSN, or banking details",
+        points: 30,
+        test: function(input) {
+          return /password|ssn|social security|credit card|banking details|card number|account number/i.test(input);
+        }
+      },
+
+      {
+        label: "Threat language detected — 'legal action', 'account will be closed' etc.",
+        points: 20,
+        test: function(input) {
+          return /legal action|permanently (closed|deleted|suspended)|will be (closed|terminated)/i.test(input);
+        }
+      },
+
+    ];
+
+
+    function analyze() {
+
+      let input = document.getElementById("userInput").value;
+
+      if (input.trim() === "") {
+        alert("Please paste something first!");
+        return;
+      }
+
+      let score = 0;
+      let triggeredFlags = [];
+
+      for (let check of checks) {
+        if (check.test(input)) {
+          score = score + check.points;
+          triggeredFlags.push(check.label);
+        }
+      }
+
+      if (score > 100) {
+        score = 100;
+      }
+
+      let verdict = "";
+      let verdictColor = "";
+
+      if (score === 0) {
+        verdict = "✅ Looks safe!";
+        verdictColor = "green";
+      } else if (score < 30) {
+        verdict = "🟡 A bit suspicious — stay cautious";
+        verdictColor = "orange";
+      } else if (score < 60) {
+        verdict = "🟠 Suspicious — do not proceed";
+        verdictColor = "darkorange";
+      } else {
+        verdict = "🔴 Very likely PHISHING — do not click!";
+        verdictColor = "red";
+      }
+
+      let html = "";
+      html += "<div class='verdict' style='color:" + verdictColor + ";'>" + verdict + "</div>";
+      html += "<div class='score'>Risk score: " + score + " / 100</div>";
+
+      if (triggeredFlags.length > 0) {
+        html += "<p><b>Red flags found:</b></p>";
+        for (let flag of triggeredFlags) {
+          html += "<div class='flag-item'>⚠️ " + flag + "</div>";
+        }
+      } else {
+        html += "<p>No suspicious patterns detected. Remember: no tool is 100% perfect, always stay alert</p>";
+      }
+
+      let resultsBox = document.getElementById("results");
+      resultsBox.innerHTML = html;
+      resultsBox.style.display = "block";
+
+    }
+
+  </script>
+
+</body>
+</html>
+
+
+
+
